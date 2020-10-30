@@ -5,6 +5,7 @@
 
 ### Component Description
 - [Jupyter Code](Code/jupyter/TK.ipynb): Contains code used to analyze data and produce infographics in Python using Jupyter Notebook.
+- [R Code](Code/rCode.Rmd): Contains code used to analyze data and produce infographics in R using R Studio.
 - [Data](data): All data used in code, collected over 2018, 2019, and 2020.
 - [Jupyter Figures](Jupyter%20Figures): All maps, lineplots, dotplots, and whiskerplots produced in Jupyter.
 - [R Figures](R%20Figures): All maps, lineplots, dotplots, and whiskerplots produced in RStudio.
