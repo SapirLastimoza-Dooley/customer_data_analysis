@@ -1,0 +1,463 @@
+---
+title: "TK Paddles LLC Customer Data Analysis"
+author: "Sapir Dooley, Emily Gill, Austin Pigg, Raiden Utt"
+date: "4/17/2020"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+
+```{r import packages}
+# install.packages("ggplot2")
+library("ggplot2")
+# install.packages("dplyr")
+library("dplyr")
+# install.packages("maps")
+library("maps")
+# install.packages("viridis")
+library("viridis")
+#install.packages("hrbrthemes")
+library("hrbrthemes")
+# install.packages("plotly")
+library("plotly")
+#install.packages("tidyr")
+library("tidyr")
+#install.packages("lubridate")
+library("lubridate")
+#install.packages("zoo")
+library("zoo")
+#install.packages("scales")
+library(scales)
+
+```
+
+```{r load data}
+# Create paths
+path = "/MyFiles/University/SP_2020/GEOG_312/Assignments/finalProject"
+eighteenPath <- file.path(path, "demographics2018.csv")
+nineteenPath <- file.path(path, "demographics2019.csv")
+twentyPath <- file.path(path, "demographics2020.csv")
+futurePath <- file.path(path, "futureDemographics.csv")
+
+#read in data
+eighteen <- read.csv(eighteenPath, header = T)
+nineteen <- read.csv(nineteenPath, header = T)
+twenty <- read.csv(twentyPath, header = T)
+future <- read.csv(futurePath, header = T)
+
+#convert profit to factor
+eighteen$profit <- as.numeric(eighteen$profit)
+nineteen$profit <- as.numeric(nineteen$profit)
+twenty$profit <- as.numeric(twenty$profit)
+
+#convert dates to dates
+eighteen$date <- as.Date(eighteen$date)
+eighteen$month_day <- as.Date(eighteen$month_day)
+nineteen$date <- as.Date(nineteen$date)
+nineteen$month_day <- as.Date(nineteen$month_day)
+twenty$month_day <- as.Date(twenty$month_day)
+
+#add cumulative sum and mean profit
+eighteen <- eighteen %>%
+  mutate(cumsum = cumsum(profit)) %>%
+  drop_na(cumsum)
+  eighteen$meanProfit <- mean(eighteen$profit)
+nineteen <- nineteen %>%
+  mutate(cumsum = cumsum(profit)) %>%
+  drop_na(cumsum)
+  nineteen$meanProfit <- mean(nineteen$profit)
+twenty <- twenty %>%
+  mutate(cumsum = cumsum(profit)) %>%
+  drop_na(cumsum)
+  twenty$meanProfit <- mean(twenty$profit)
+  
+# add data IDs
+future$ID <- seq.int(nrow(data))
+
+# calculate distances from college station
+future$ZZZ=1
+temp <- future %>% full_join(future,c("ZZZ"="ZZZ")) %>% 
+        filter(ID.x != ID.y) %>% 
+        mutate(dist=(sqrt(((longitude.x-longitude.y)^2 + (latitude.x-latitude.y)^2))*100)*0.621371)
+distances <- subset(new,organization.x == "Beta Tau Omega", select = c("organization.x", "city.x","organization.y", "city.y", "dist"))
+
+
+head(eighteen)
+head(nineteen)
+head(twenty)
+head(future)
+#head(future1)
+head(distances)
+```
+````{r variables}
+usa <- map_data("usa")
+states <- map_data("state")
+future1 <- subset(future, totalMembers > 200, select = c("latitude","longitude","totalMembers", "organization", "university"))
+```
+
+
+```{r static maps}
+sm1 <- ggplot() + 
+  geom_polygon(data=states, aes(long, lat, group = group), color = "white") + coord_fixed(1.3) + guides(fill=FALSE) +
+  geom_point(data=eighteen, aes(longitude, latitude, size = profit, color = organization, alpha = 1/20)) + 
+  ggtitle("2018 Customer Distribution") +
+  theme_void() + 
+  theme(panel.border = element_blank(), panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(), axis.line = element_blank(), 
+    legend.position = "bottom", legend.box = "vertical") +
+  guides(alpha = "none") + labs(size = "Profit (USD)", color = "Organization")
+sm1
+sm2 <- ggplot() + 
+  geom_polygon(data=states, aes(long, lat, group = group), color = "white") + coord_fixed(1.3) + guides(fill=FALSE) +
+  geom_point(data=nineteen, aes(longitude, latitude, size = profit, color = organization, alpha = 1/20)) + 
+  ggtitle("2019 Customer Distribution") +
+  theme_void() + theme(panel.border = element_blank(), panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(), axis.line = element_blank(), 
+    legend.position = "bottom", legend.box = "vertical") +
+  guides(alpha = "none", color = guide_legend(nrow = 5)) + labs(size = "Profit (USD)", color = "Organization")
+sm2
+
+sm3 <- ggplot() + 
+  geom_polygon(data=states, aes(long, lat, group = group), color = "white") + coord_fixed(1.3) + guides(fill=FALSE) +
+  geom_point(data=twenty, aes(longitude, latitude, size = profit, color = organization, alpha = 1/20)) + 
+  ggtitle("2020 Customer Distribution") +
+  theme_void() + theme(panel.border = element_blank(), panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(), axis.line = element_blank(), 
+    legend.position = "bottom", legend.box = "vertical") +
+  guides(alpha = "none") + labs(size = "Profit (USD)", color = "Organization")
+sm3
+
+```
+
+```{r interactive maps}
+im1 <- ggplot() + 
+  geom_polygon(data=states,aes(long, lat, group = group), color = "white") + coord_fixed(1.3) + guides(fill=FALSE) +
+  geom_point(data=eighteen, aes(longitude, latitude, size = profit, color = organization, alpha = 1/20, group = 1,
+             text = paste("Organization: ", organization, "<br>University: ", university, "<br>Profit: $", profit))) + 
+  ggtitle("2018 Customer Distribution (Hover for info)") +
+  theme_void() + theme(panel.border = element_blank(), panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(), axis.line = element_blank(), legend.position = "none")
+im1 <- ggplotly(im1, tooltip = "text")
+im1 <- im1 %>% layout(legend = list(orientation = 'h', y = -0.05))
+im1
+
+
+im2 <- ggplot() + 
+  geom_polygon(data=states,aes(long, lat, group = group), color = "white") + coord_fixed(1.3) + guides(fill=FALSE) +
+  geom_point(data=nineteen, aes(longitude, latitude, size = profit, color = organization, alpha = 1/20, group = 1,
+             text = paste("Organization: ", organization, "<br>University: ", university, "<br>Profit: $", profit))) + 
+  ggtitle("2019 Customer Distribution (Hover for info)") +
+  theme_void() + theme(panel.border = element_blank(), panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(), axis.line = element_blank(), legend.position = "none")
+im2 <- ggplotly(im2, tooltip = "text")
+im2 <- im2 %>% layout(legend = list(orientation = 'h', y = -0.05))
+im2
+
+im3 <- ggplot() + 
+  geom_polygon(data=states,aes(long, lat, group = group), color = "white") + coord_fixed(1.3) + guides(fill=FALSE) +
+  geom_point(data=twenty, aes(longitude, latitude, size = profit, color = organization, alpha = 1/20, group = 1,
+             text = paste("Organization: ", organization, "<br>University: ", university, "<br>Profit: $", profit))) + 
+  ggtitle("2019 Customer Distribution (Hover for info)") +
+  theme_void() + theme(panel.border = element_blank(), panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(), axis.line = element_blank(), legend.position = "none")
+im3 <- ggplotly(im3, tooltip = "text")
+im3 <- im3 %>% layout(legend = list(orientation = 'h', y = -0.05))
+im3
+
+
+
+```
+
+
+```{r boxplots}
+b1 <- ggplot(eighteen, aes(x=organization, y=profit)) + 
+  geom_boxplot(fill="gray") +
+  labs(title="Profit Distribution by Organization (2018)",x=element_blank(), y = "Profit (USD)") +
+  ylim(0,200) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = -45))
+b1
+
+b2 <- ggplot(nineteen, aes(x=organization, y=profit)) + 
+  geom_boxplot(fill="gray") +
+  labs(title="Profit Distribution by Organization (2019)",x=element_blank(), y = "Profit (USD)") +
+  ylim(0,200) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = -45))
+b2
+
+b3 <- ggplot(twenty, aes(x=organization, y=profit)) + 
+  geom_boxplot(fill="gray") +
+  labs(title="Profit Distribution by Organization (2020)",x=element_blank(), y = "Profit (USD)") +
+  ylim(0,200) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = -45))
+b3
+
+```
+
+```{r line plots}
+lp1 <- ggplot(eighteen, aes(x=date, y=profit)) +
+  geom_point(aes(color = organization)) +
+  scale_x_date(date_breaks = "1 month", date_labels = "%B", limit=c(as.Date("2018-01-01"),as.Date("2018-12-31"))) +
+  ylim(0,550) +
+  labs(x=element_blank(), y="Profit (USD)", color="Organization") +
+  ggtitle("2018 Temporal Sales Distribution") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = -45))
+lp1
+
+lp2 <- ggplot(nineteen, aes(x=date, y=profit)) +
+  geom_point(aes(color = organization)) +
+  scale_x_date(date_breaks = "1 month", date_labels = "%B", limit=c(as.Date("2019-01-01"),as.Date("2019-12-31"))) +
+  ylim(0,550) +
+  labs(x=element_blank(), y="Profit (USD)", color="Organization") +
+  ggtitle("2019 Temporal Sales Distribution") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = -45))
+lp2
+
+lp3 <- ggplot(twenty, aes(x=month_day, y=profit)) +
+  geom_point(aes(color = organization)) +
+  scale_x_date(date_breaks = "1 month", date_labels = "%B", limit=c(as.Date("2020-01-01"),as.Date("2020-12-31"))) +
+  ylim(0,550) +
+  labs(x=element_blank(), y="Profit (USD)", color="Organization") +
+  ggtitle("2020 Temporal Sales Distribution") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = -45))
+lp3
+
+```
+
+```{r profit over time line plots}
+lp4 <- ggplot(eighteen, aes(x=date, y=cumsum)) +
+  geom_line() +
+  geom_point() +
+  scale_x_date(date_breaks = "1 month", date_labels = "%B", limit=c(as.Date("2018-01-01"),as.Date("2018-12-31"))) +
+  ylim(0,15000) +
+  labs(x=element_blank(), y="Cumulative Profit (USD)") +
+  ggtitle("2018 Cumulative Profit") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = -45))
+lp4
+
+lp5 <- ggplot(nineteen, aes(x=date, y=cumsum)) +
+  geom_line() +
+  geom_point() +
+  scale_x_date(date_breaks = "1 month", date_labels = "%B", limit=c(as.Date("2019-01-01"),as.Date("2019-12-31"))) +
+  ylim(0,15000) +
+  labs(x=element_blank(), y="Cumulative Profit (USD)") +
+  ggtitle("2019 Cumulative Profit") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = -45))
+lp5
+
+lp6 <- ggplot(twenty, aes(x=month_day, y=cumsum)) +
+  geom_line() +
+  geom_point() +
+  scale_x_date(date_breaks = "1 month", date_labels = "%B", limit=c(as.Date("2020-01-01"),as.Date("2020-12-31"))) +
+  ylim(0,15000) +
+  labs(x=element_blank(), y="Cumulative Profit (USD)") +
+  ggtitle("2020 Cumulative Profit") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = -45))
+lp6
+```
+```{r static future bubble maps}
+sm4 <- ggplot() + 
+  geom_polygon(data=states, aes(long, lat, group = group), color = "white") + coord_fixed(1.3) + guides(fill=FALSE) +
+  geom_point(data=future, aes(longitude, latitude, size = totalMembers, color = organization, alpha = 1/20)) + 
+  ggtitle("Potential Customer Distribution") +
+  theme_void() + 
+  theme(panel.border = element_blank(), panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(), axis.line = element_blank(), 
+    legend.position = "bottom", legend.box = "vertical") +
+  guides(alpha = "none") + labs(size = "# Members", color = element_blank())
+sm4
+
+sm5 <- ggplot() + 
+  geom_polygon(data=states, aes(long, lat, group = group), color = "white") + coord_fixed(1.3) + guides(fill=FALSE) +
+  geom_point(data=future1, aes(longitude, latitude, size = totalMembers, color = organization, alpha = 1/20)) + 
+  ggtitle("Organizations w/ 200+ Members") +
+  theme_void() + 
+  theme(panel.border = element_blank(), panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(), axis.line = element_blank(), 
+    legend.position = "bottom", legend.box = "vertical") +
+  guides(alpha = "none") + labs(size = "# Members", color = element_blank())
+sm5
+
+sm6 <- ggplot() + 
+  geom_polygon(data=states, aes(long, lat, group = group), color = "white") + coord_fixed(1.3) + guides(fill=FALSE) +
+  geom_point(data=future, aes(longitude, latitude, size = totalMembers, color = paddles.y.n., alpha = 1/20)) + 
+  ggtitle("Oganizations w/ A History of Paddle Gifting") +
+  theme_void() + 
+  theme(panel.border = element_blank(), panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(), axis.line = element_blank(), 
+    legend.position = "bottom", legend.box = "vertical") +
+  guides(alpha = "none") + labs(size = "# Members", color = element_blank())
+sm6
+
+sm7 <- ggplot() + 
+  geom_polygon(data=states, aes(long, lat, group = group), color = "white") + coord_fixed(1.3) + guides(fill=FALSE) +
+  geom_point(data=future, aes(longitude, latitude, size = totalMembers, color = affinityClient, alpha = 1/20)) + 
+  ggtitle("Oganizations Protected by a Licensing Company") +
+  theme_void() + 
+  theme(panel.border = element_blank(), panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(), axis.line = element_blank(), 
+    legend.position = "bottom", legend.box = "vertical") +
+  guides(alpha = "none") + labs(size = "# Members", color = element_blank())
+sm7
+
+sm8 <- ggplot() + 
+  geom_polygon(data=states, aes(long, lat, group = group), color = "white") + coord_fixed(1.3) + guides(fill=FALSE) +
+  geom_point(data=future, aes(longitude, latitude, size = totalMembers, color = type, alpha = 1/20)) + 
+  ggtitle("Oganizations by Type") +
+  theme_void() + 
+  theme(panel.border = element_blank(), panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(), axis.line = element_blank(), 
+    legend.position = "bottom", legend.box = "vertical") +
+  guides(alpha = "none") + labs(size = "# Members", color = "Type")
+sm8
+
+```
+
+
+```{r interactive future bubble maps}
+im4 <- ggplot() + 
+  geom_polygon(data=states,aes(long, lat, group = group), color = "white") + coord_fixed(1.3) + guides(fill=FALSE) +
+  geom_point(data=future, aes(longitude, latitude, size = totalMembers, color = organization, alpha = 1/20, group = 1,
+             text = paste("Organization: ", organization, "<br>University: ", university, "<br>Total Members: ", totalMembers))) + 
+  ggtitle("Potential Customer Distribution (Hover for info)") +
+  theme_void() + theme(panel.border = element_blank(), panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(), axis.line = element_blank(), legend.position = "none")
+im4 <- ggplotly(im4, tooltip = "text")
+im4
+
+im5 <- ggplot() + 
+  geom_polygon(data=states,aes(long, lat, group = group), color = "white") + coord_fixed(1.3) + guides(fill=FALSE) +
+  geom_point(data=future1, aes(longitude, latitude, size = totalMembers, color = organization, alpha = 1/20, group = 1,
+             text = paste("Organization: ", organization, "<br>University: ", university, "<br>Total Members: ", totalMembers))) + 
+  ggtitle("Organizations w/ 200+ Members (Hover for info)") +
+  theme_void() + theme(panel.border = element_blank(), panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(), axis.line = element_blank(), legend.position = "none")
+im5 <- ggplotly(im5, tooltip = "text")
+im5
+
+im6 <- ggplot() + 
+  geom_polygon(data=states,aes(long, lat, group = group), color = "white") + coord_fixed(1.3) + guides(fill=FALSE) +
+  geom_point(data=future, aes(longitude, latitude, size = totalMembers, color = paddles.y.n., alpha = 1/20, group = 1,
+             text = paste("Organization: ", organization, "<br>University: ", university, "<br>Total Members: ", totalMembers, "<br> Gifts Paddles? ", paddles.y.n.))) + 
+  ggtitle("Oganizations w/ A History of Paddle Gifting (Hover for info)") +
+  theme_void() + theme(panel.border = element_blank(), panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(), axis.line = element_blank(), legend.position = "none")
+im6 <- ggplotly(im6, tooltip = "text")
+im6
+
+im7 <- ggplot() + 
+  geom_polygon(data=states,aes(long, lat, group = group), color = "white") + coord_fixed(1.3) + guides(fill=FALSE) +
+  geom_point(data=future, aes(longitude, latitude, size = totalMembers, color = affinityClient, alpha = 1/20, group = 1,
+             text = paste("Organization: ", organization, "<br>University: ", university, "<br>Total Members: ", totalMembers, "<br> Protected? ", affinityClient))) + 
+  ggtitle("Oganizations Protected by a Licensing Company (Hover for info)") +
+  theme_void() + theme(panel.border = element_blank(), panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(), axis.line = element_blank(), legend.position = "none")
+im7 <- ggplotly(im7, tooltip = "text")
+im7
+
+im8 <- ggplot() + 
+  geom_polygon(data=states,aes(long, lat, group = group), color = "white") + coord_fixed(1.3) + guides(fill=FALSE) +
+  geom_point(data=future, aes(longitude, latitude, size = totalMembers, color = type, alpha = 1/20, group = 1,
+             text = paste("Organization: ", organization, "<br>University: ", university, "<br>Total Members: ", totalMembers, "<br> Type: ", type))) + 
+  ggtitle("Oganizations by Type (Hover for info)") +
+  theme_void() + theme(panel.border = element_blank(), panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(), axis.line = element_blank(), legend.position = "none")
+im8 <- ggplotly(im8, tooltip = "text")
+im8
+
+```
+```{r proportion inferential analysis}
+
+future2 <- subset(future, totalMembers > 100, select = c("latitude","longitude","totalMembers", "organization", "university", "affinityClient"))
+
+levels(future2$affinityClient)
+
+liscenced_yes_no <- future2$affinityClient == "y"
+
+table(liscenced_yes_no)
+
+p_hat <- mean(liscenced_yes_no)
+p_hat
+
+std_err <- sqrt(p_hat*(1-p_hat)/length(liscenced_yes_no))
+z_star <- qnorm(.975)
+z_star
+lb <- p_hat - z_star*std_err
+ub <- p_hat + z_star*std_err
+c(lb,ub)
+```
+
+```{r}
+
+```
+
+
+
+```{r future analysis}
+#Distances Dot Plot
+sp1 <- ggplot(distances, aes(x=organization.y, y=dist)) +
+  geom_point() +
+  labs(x=element_blank(), y="Distance (mi)") +
+  ggtitle("Distances from College Station") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90))
+sp1
+
+#Liscencing Pie Chart
+blank_theme <- theme_minimal()+
+  theme(
+  axis.title.x = element_blank(),
+  axis.title.y = element_blank(),
+  panel.border = element_blank(),
+  panel.grid=element_blank(),
+  axis.ticks = element_blank(),
+  plot.title=element_text(size=14, face="bold")
+  )
+
+ggplot(future, aes(x=factor(1), fill=affinityClient)) +
+  geom_bar(width = 1) + blank_theme + 
+  theme(axis.text.x=element_blank()) + 
+  coord_polar("y") +
+  labs(fill = "Trademark Protected?")
+
+# Paddle Gifting
+ggplot(future, aes(x=factor(1), fill=paddles.y.n.)) +
+  geom_bar(width = 1) + blank_theme + 
+  theme(axis.text.x=element_blank()) + 
+  coord_polar("y") +
+  labs(fill = "Paddle Gifting?")
+
+# State
+ggplot(future, aes(x=factor(1), fill=state)) +
+  geom_bar(width = 1) + blank_theme + 
+  theme(axis.text.x=element_blank()) + 
+  coord_polar("y") +
+  labs(fill = "State")
+
+# Type
+ggplot(future, aes(x=factor(1), fill=type)) +
+  geom_bar(width = 1) + blank_theme + 
+  theme(axis.text.x=element_blank()) + 
+  coord_polar("y") +
+  labs(fill = "Type")
+
+```
