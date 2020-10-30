@@ -7,5 +7,5 @@
 - [Code](code): Contains code used to analyze data and produce infographics in both R using RStudio and Python using Jupyter Notebook.
 - [Data](data): All data used in code, collected over 2018, 2019, and 2020.
 - [Jupyter Figures](Jupyter%20Figures): All maps, lineplots, dotplots, and whiskerplots produced in Jupyter.
-- [R Figures](R Figures): All maps, lineplots, dotplots, and whiskerplots produced in RStudio.
+- [R Figures](R%20Figures): All maps, lineplots, dotplots, and whiskerplots produced in RStudio.
 - [Reports](Reports): Final Project Report and Presentation.
